@@ -34,6 +34,27 @@ const RUN_TIMEOUT_MS = (() => {
   const n = m ? parseFloat(m.split("=")[1]) : NaN;
   return (Number.isFinite(n) && n > 0 ? n : 10) * 60 * 1000;
 })();
+const DAILY_CAP = (() => {
+  const m = argv.find((a) => a.startsWith("--daily-cap="));
+  const n = m ? parseInt(m.split("=")[1], 10) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : 20; // LinkedIn rate safety
+})();
+const DAILY_FILE = "./daily.json";
+function dailyCount() {
+  try {
+    const d = JSON.parse(fs.readFileSync(DAILY_FILE, "utf8"));
+    return d.date === new Date().toISOString().slice(0, 10) ? d.count : 0;
+  } catch { return 0; }
+}
+function bumpDaily() {
+  const today = new Date().toISOString().slice(0, 10);
+  let d;
+  try { d = JSON.parse(fs.readFileSync(DAILY_FILE, "utf8")); } catch { d = { date: today, count: 0 }; }
+  if (d.date !== today) d = { date: today, count: 0 };
+  d.count++;
+  fs.writeFileSync(DAILY_FILE, JSON.stringify(d));
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const QUEUE_FILE = "./queue.json";
 const STATE_FILE = "./applied.json";
 const loadState = () =>
@@ -77,6 +98,12 @@ async function run() {
   }
   const queue = JSON.parse(fs.readFileSync(QUEUE_FILE, "utf8"));
   const state = loadState();
+  const today = dailyCount();
+  if (today >= DAILY_CAP) {
+    console.log(`[cap] daily cap reached (${today}/${DAILY_CAP}) — stopping to protect the account. Rerun tomorrow.`);
+    process.exit(0);
+  }
+  console.log(`[cap] today ${today}/${DAILY_CAP} submits used`);
   const done = new Set(state.applied);
   const jobs = queue.jobs.filter((j) => j.easyApply && !j.skipped && !done.has(j.jobId));
   console.log(`[init] queue: ${jobs.length} pending Easy Apply jobs (SDK ${USE_SDK ? "ON" : "OFF"})`);
@@ -124,8 +151,12 @@ async function run() {
         const compHref = await page.locator("a[href*='/company/']").first().getAttribute("href").catch(() => null);
         if (compHref) {
           const v = await verifyViaBackgroundPage(ctx, compHref);
-          if (!v.genuine) { console.log(`[skip] unverified (followers=${v.followers})`); state.skipped.push({ jobId: job.jobId, reason: `unverified:${v.followers}` }); continue; }
-          console.log(`[verify] tier=${v.tier} followers=${v.followers}`);
+          // Trust the HIGHER of queue-time vs re-verified followers (lazy render
+          // can read 0 and wrongly kill top-tier employers).
+          const followers = Math.max(job.followers || 0, v.followers);
+          const tier = followers >= VERIFY.topTier ? "top" : followers >= VERIFY.midTier ? "mid" : followers >= VERIFY.minFollowers ? "popular" : "small";
+          if (followers < VERIFY.minFollowers) { console.log(`[skip] unverified (followers=${followers})`); state.skipped.push({ jobId: job.jobId, reason: `unverified:${followers}` }); continue; }
+          console.log(`[verify] tier=${tier} followers=${followers}`);
         }
         if (DRY) { console.log(`[dry] WOULD APPLY`); continue; }
         if (!AUTO_YES) {
@@ -138,8 +169,12 @@ async function run() {
           console.log(`[APPLIED] in ${Math.round((Date.now() - jt0) / 1000)}s`);
           state.applied.push(job.jobId);
           appliedTotal++;
+          bumpDaily();
+          const pause = 20000 + Math.floor(Math.random() * 25000); // human jitter 20-45s between submits
+          console.log(`[jitter] pausing ${Math.round(pause / 1000)}s before next job...`);
+          await sleep(pause);
         } else if (res.needsHuman) {
-          console.log(`[needs-human] ${(res.question || "").slice(0, 120).replace(/\n/g, " ")}`);
+          console.log(`[needs-human] ${(res.question || "").slice(0, 120).replace(/\n/g, " ")} [${res.reason || "no-reason"}]`);
           state.skipped.push({ jobId: job.jobId, reason: `needs-human:${(res.question || "").slice(0, 80)}` });
         } else {
           console.log(`[error] ${res.error}`);

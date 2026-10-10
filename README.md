@@ -46,7 +46,7 @@ google-chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug
    copy profile.example.js profile.js   # Windows
    # cp profile.example.js profile.js   # macOS/Linux
    ```
-   Then edit `profile.js`: name, email, phone, location, resume PDF path, and the `screening` answers. **Only add answers that are true** — the bot fills these verbatim; anything missing escalates instead of guessing. Tune `SEARCHES` (keywords mirroring your resume) and `VERIFY.minFollowers` (company quality bar).
+   Then edit `profile.js`: name, email, phone, location, resume PDF path, and the `screening` answers. **Only add answers that are true** — the bot fills these verbatim; anything missing escalates instead of guessing. Extra facts the engine understands: `languages` (e.g. Hindi questions resolve from it), `cloud` (AWS/GCP/Azure hands-on), `remoteEquipped` (own device for WFH), `productionApi` (shipped third-party integrations). Tune `SEARCHES` (keywords mirroring your resume) and `VERIFY.minFollowers` (company quality bar).
 2. **Log in to LinkedIn** in that Chrome profile (one time; session persists).
 3. (Optional) `LINKEDIN_EMAIL` / `LINKEDIN_PASSWORD` env vars for unattended re-login. Otherwise you'll get a secure hidden prompt if the session expires.
 
@@ -68,7 +68,7 @@ node apply.js --dry                    # preview queue, submit nothing
 node apply.js --cdp --yes --max=5 --no-sdk   # automation only, skip unknowns
 ```
 
-Shared flags: `--timeout-mins=N` (global kill timer, default 10 — runs always exit cleanly). Legacy all-in-one runner: `node apply-linkedin.js --cdp --yes --max=5`.
+Shared flags: `--timeout-mins=N` (global kill timer, default 10 — runs always exit cleanly), `--daily-cap=N` (default 20 submits/day — run refuses past the cap to protect the account). A random 20–45s pause runs between submits. Legacy all-in-one runner: `node apply-linkedin.js --cdp --yes --max=5`.
 
 ## How it works
 

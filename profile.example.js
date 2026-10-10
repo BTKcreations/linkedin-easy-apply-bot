@@ -9,6 +9,10 @@ export const PROFILE = {
   phone: "9876543210",
   location: "City, Country", // e.g. "Hyderabad, India"
   remote: true,
+  remoteEquipped: true, // own device + internet for WFH? true/false
+  languages: ["English"], // languages you speak — Hindi-type questions resolve from this
+  cloud: ["AWS"], // cloud platforms you have hands-on experience with (empty array if none)
+  productionApi: true, // shipped third-party API integrations to deployed apps? true/false
   education: { degree: "B.Tech AI & ML", college: "Your College", cgpa: "8.05", graduated: "May 2026" },
   // Pre-approved screening answers. ONLY add answers that are true for you —
   // the bot fills these deterministically; anything else escalates to AI/human.
