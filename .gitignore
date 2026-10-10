@@ -5,6 +5,7 @@ chrome-profile/
 applied.json
 queue.json
 daily.json
+answers.json
 profile.js
 .env
 .DS_Store

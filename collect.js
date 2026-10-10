@@ -1,10 +1,11 @@
-// PHASE 1 — COLLECT. No applications are submitted here.
+// PHASE 1 — COLLECT + FILTER. No applications are submitted here.
 // Flow: login (stay logged in) -> search URLs from resume -> scrape job URLs ->
-// detect Easy Apply per job -> store everything in queue.json.
-// Safe to run any time; run it first, review queue.json, then run apply.js.
+// per job: senior/irrelevant filter + Easy Apply detect + company VERIFY
+// (background tab) -> store ONLY verified-easy jobs as ready:true in queue.json.
+// Phase 2 (apply.js) trusts the queue and runs fast — no re-verification.
 import { chromium } from "playwright";
 import fs from "node:fs";
-import { SEARCHES, SKIP } from "./profile.js";
+import { SEARCHES, SKIP, VERIFY } from "./profile.js";
 const _log = console.log.bind(console);
 console.log = (...a) => _log(new Date().toISOString().slice(11, 19), ...a);
 import { ensureLoggedIn } from "./lib/login.js";
@@ -82,23 +83,53 @@ async function run() {
           const company = c.company;
           if (!title || isIrrelevant(title)) { queue.jobs.push({ jobId: c.jobId, title, company, skipped: "irrelevant-title" }); continue; }
           if (appliedSet.has(c.jobId)) { queue.jobs.push({ jobId: c.jobId, title, company, skipped: "already-applied" }); continue; }
-          // Per-job URL: quick Easy Apply probe (2.5s, no long waits — Phase 2 re-verifies).
+          // Per-job URL: filter (senior?) + Easy Apply detect + VERIFY (background
+          // tab, main page never moves) -> store ready-only. Phase 2 is fast.
           try {
             await page.goto(`https://www.linkedin.com/jobs/view/${c.jobId}/`, { waitUntil: "domcontentloaded", timeout: 25000 });
             await page.waitForTimeout(2500);
             const body = await page.locator("body").innerText().catch(() => "");
+            if (SKIP.seniorSignals.some((re) => re.test(body))) {
+              queue.jobs.push({ jobId: c.jobId, title, company, skipped: "senior-role" });
+              console.log(`[filtered] senior-role: ${title}`);
+              continue;
+            }
             const easy = (await page.locator("button").filter({ hasText: /^Easy Apply$/ }).count().catch(() => 0)) > 0;
-            const extHref = easy ? null : await page.locator("a[href*='linkedin.com/safety/go']").first().getAttribute("href").catch(() => null);
-            const fol = body.match(/([\d,]+)\s+followers/);
+            if (!easy) {
+              const extHref = await page.locator("a[href*='linkedin.com/safety/go']").first().getAttribute("href").catch(() => null);
+              queue.jobs.push({ jobId: c.jobId, title, company, url: `https://www.linkedin.com/jobs/view/${c.jobId}/`, easyApply: false, externalUrl: extHref, collectedAt: new Date().toISOString() });
+              console.log(`[queued-external] ${title} @ ${company}`);
+              continue;
+            }
+            const compHref = await page.locator("a[href*='/company/']").first().getAttribute("href").catch(() => null);
+            let followers = 0;
+            if (compHref) {
+              let bg = null;
+              try {
+                bg = await ctx.newPage();
+                await bg.goto(compHref.split("?")[0], { waitUntil: "domcontentloaded", timeout: 20000 });
+                for (let i = 0; i < 3 && followers === 0; i++) {
+                  if (i > 0) await bg.waitForTimeout(1200);
+                  const t = await bg.locator("body").innerText().catch(() => "");
+                  const m = t.match(/([\d,]+)\s+followers/);
+                  followers = m ? parseInt(m[1].replace(/,/g, ""), 10) : 0;
+                }
+              } catch {}
+              await bg?.close().catch(() => {});
+            } else {
+              const fol = body.match(/([\d,]+)\s+followers/);
+              followers = fol ? parseInt(fol[1].replace(/,/g, ""), 10) : 0;
+            }
+            const tier = followers >= VERIFY.topTier ? "top" : followers >= VERIFY.midTier ? "mid" : followers >= VERIFY.minFollowers ? "popular" : "small";
+            const ready = followers >= VERIFY.minFollowers;
             queue.jobs.push({
               jobId: c.jobId, title, company,
               url: `https://www.linkedin.com/jobs/view/${c.jobId}/`,
-              easyApply: easy, externalUrl: extHref,
-              followers: fol ? parseInt(fol[1].replace(/,/g, ""), 10) : 0,
+              easyApply: true, ready, followers, tier,
               collectedAt: new Date().toISOString(),
             });
-            if (easy) { added++; console.log(`[queued] ${title} @ ${company}`); }
-            else console.log(`[queued-external] ${title} @ ${company}`);
+            if (ready) { added++; console.log(`[queued] ${title} @ ${company} [${tier}]`); }
+            else console.log(`[filtered] unverified (${followers} followers): ${title}`);
           } catch (e) {
             queue.jobs.push({ jobId: c.jobId, title, company, skipped: "collect-error" });
           }
@@ -110,8 +141,8 @@ async function run() {
     console.error("[fatal]", String(e).slice(0, 200));
   } finally {
     saveQueue({ collectedAt: new Date().toISOString(), jobs: queue.jobs });
-    const easy = queue.jobs.filter((j) => j.easyApply).length;
-    console.log(`Done in ${Math.round((Date.now() - t0) / 1000)}s. +${added} new Easy Apply jobs. Queue: ${queue.jobs.length} total (${easy} easy-apply). File: ${QUEUE_FILE}`);
+    const ready = queue.jobs.filter((j) => j.ready).length;
+    console.log(`Done in ${Math.round((Date.now() - t0) / 1000)}s. +${added} new READY jobs. Queue: ${queue.jobs.length} total (${ready} ready). File: ${QUEUE_FILE}`);
     await page.close().catch(() => {});
     if (!USE_CDP) await browser.close().catch(() => {});
     process.exit(0);

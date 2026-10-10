@@ -62,11 +62,14 @@ node collect.js --cdp
 # Review / edit queue.json (delete lines you don't want), then:
 
 # Phase 2 — APPLY: verify company → fill dialog → SDK fills unknowns → submit
-node apply.js --cdp --yes --max=5      # auto-submit up to 5
+node apply.js --cdp --yes --max=5      # auto-submit up to 5, then interactive batch for the rest
 node apply.js --cdp                    # ask before each submit
 node apply.js --dry                    # preview queue, submit nothing
 node apply.js --cdp --yes --max=5 --no-sdk   # automation only, skip unknowns
+node apply.js --cdp --yes --max=5 --no-ask   # no end-batch (scheduled runs; unknowns only listed)
 ```
+
+Jobs the bot can't answer are **deferred, not skipped**: the automatic pass streams through everything it can, then the end-of-run batch shows each deferred job (title, company, tier, URL + the exact question) and you answer one by one — each answer is saved to `answers.json` and that job submits immediately. Teach once, never asked twice.
 
 Shared flags: `--timeout-mins=N` (global kill timer, default 10 — runs always exit cleanly), `--daily-cap=N` (default 20 submits/day — run refuses past the cap to protect the account), `--sdk-port=N` (pin the AI-escalation server port; default tries 4499→4498→4497, adopting a live one if a previous run orphaned it). A random 20–45s pause runs between submits. Legacy all-in-one runner: `node apply-linkedin.js --cdp --yes --max=5`.
 
