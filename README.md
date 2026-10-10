@@ -68,7 +68,7 @@ node apply.js --dry                    # preview queue, submit nothing
 node apply.js --cdp --yes --max=5 --no-sdk   # automation only, skip unknowns
 ```
 
-Shared flags: `--timeout-mins=N` (global kill timer, default 10 — runs always exit cleanly), `--daily-cap=N` (default 20 submits/day — run refuses past the cap to protect the account). A random 20–45s pause runs between submits. Legacy all-in-one runner: `node apply-linkedin.js --cdp --yes --max=5`.
+Shared flags: `--timeout-mins=N` (global kill timer, default 10 — runs always exit cleanly), `--daily-cap=N` (default 20 submits/day — run refuses past the cap to protect the account), `--sdk-port=N` (pin the AI-escalation server port; default tries 4499→4498→4497, adopting a live one if a previous run orphaned it). A random 20–45s pause runs between submits. Legacy all-in-one runner: `node apply-linkedin.js --cdp --yes --max=5`.
 
 ## How it works
 
@@ -98,7 +98,10 @@ apply-linkedin.js     legacy all-in-one runner (backup)
 lib/login.js          secure login (session → env → hidden prompt; never stored)
 lib/dialog.js         Easy Apply engine (fill knowns, escalate unknowns, submit)
 lib/verify.js         company check (followers/website/size → tier)
-lib/escalate.js       OpenCode SDK bridge (plain-text contract + timeouts)
+lib/escalate.js       OpenCode SDK bridge: every step logs itself (`[sdk] escalate/session/reply/verdict`,
+                        so AI involvement is fully visible in the terminal). Plain-text
+                        ANSWER/NEEDS_HUMAN/REASON contract (structured output is rejected
+                        by some models), adopt-or-spawn ports, 60s cap — never fatal.
 probe-sdk.js          SDK connectivity self-test (node probe-sdk.js)
 ```
 

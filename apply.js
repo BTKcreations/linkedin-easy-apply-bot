@@ -15,7 +15,7 @@ import fs from "node:fs";
 import { PROFILE, VERIFY } from "./profile.js";
 import { ensureLoggedIn } from "./lib/login.js";
 import { completeEasyApply } from "./lib/dialog.js";
-import { close as closeSdk } from "./lib/escalate.js";
+import { close as closeSdk, setSdkPort } from "./lib/escalate.js";
 
 const argv = process.argv.slice(2);
 const args = new Set(argv);
@@ -57,6 +57,12 @@ function bumpDaily() {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const QUEUE_FILE = "./queue.json";
 const STATE_FILE = "./applied.json";
+const SDK_PORT = (() => {
+  const m = argv.find((a) => a.startsWith("--sdk-port="));
+  const n = m ? parseInt(m.split("=")[1], 10) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : null;
+})();
+if (SDK_PORT) setSdkPort(SDK_PORT);
 const loadState = () =>
   fs.existsSync(STATE_FILE) ? JSON.parse(fs.readFileSync(STATE_FILE, "utf8")) : { applied: [], skipped: [] };
 const saveState = (s) => fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2));
@@ -106,7 +112,7 @@ async function run() {
   console.log(`[cap] today ${today}/${DAILY_CAP} submits used`);
   const done = new Set(state.applied);
   const jobs = queue.jobs.filter((j) => j.easyApply && !j.skipped && !done.has(j.jobId));
-  console.log(`[init] queue: ${jobs.length} pending Easy Apply jobs (SDK ${USE_SDK ? "ON" : "OFF"})`);
+  console.log(`[init] queue: ${jobs.length} pending Easy Apply jobs (SDK ${USE_SDK ? `ON (ports ${SDK_PORT ? SDK_PORT + " override" : "4499→4498→4497"})` : "OFF (--no-sdk)"})`);
 
   let ctx, page, closeBrowser;
   if (USE_CDP) {
