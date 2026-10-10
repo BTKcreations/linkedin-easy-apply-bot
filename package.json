@@ -1,0 +1,16 @@
+{
+  "name": "job-auto-apply",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hybrid LinkedIn Easy Apply automation: deterministic Playwright + OpenCode SDK escalation for unknowns.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "apply": "node apply-linkedin.js",
+    "dry": "node apply-linkedin.js --dry"
+  },
+  "dependencies": {
+    "@opencode-ai/sdk": "latest",
+    "playwright": "latest"
+  }
+}

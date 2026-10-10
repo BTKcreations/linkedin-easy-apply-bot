@@ -1,0 +1,10 @@
+# Runtime + personal stuff — never commit.
+node_modules/
+chrome-profile/
+*.log
+applied.json
+queue.json
+profile.js
+.env
+.DS_Store
+Thumbs.db
