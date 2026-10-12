@@ -134,8 +134,8 @@ async function run() {
   }
   console.log(`[cap] today ${today}/${DAILY_CAP} submits used`);
   const done = new Set(state.applied);
-  // Collect already filtered + verified: only ready jobs enter the fast lane.
-  const jobs = queue.jobs.filter((j) => j.ready && !done.has(j.jobId));
+  // ready flag (v4+) OR legacy easyApply entries collected before the flag existed.
+  const jobs = queue.jobs.filter((j) => (j.ready || (j.easyApply && !j.skipped)) && !done.has(j.jobId));
   console.log(`[init] queue: ${jobs.length} READY jobs (SDK ${USE_SDK ? `ON (ports ${SDK_PORT ? SDK_PORT + " override" : "4499→4498→4497"})` : "OFF (--no-sdk)"})`);
 
   let ctx, page, closeBrowser;

@@ -14,6 +14,17 @@ export const PROFILE = {
   cloud: ["AWS"], // cloud platforms you have hands-on experience with (empty array if none)
   productionApi: true, // shipped third-party API integrations to deployed apps? true/false
   education: { degree: "B.Tech AI & ML", college: "Your College", cgpa: "8.05", graduated: "May 2026" },
+  degreeCompleted: true, // degree finished? true/false
+  internshipMonths: 12, // professional experience for "how many years" questions
+  github: "https://github.com/yourhandle",
+  linkedin: "https://www.linkedin.com/in/yourhandle",
+  authorizedIndia: true, // legally authorized to work in your country? (used as India default; adapt text)
+  needSponsorship: false, // require visa sponsorship? true/false
+  primaryLanguage: "Python", // your strongest language (drives "prefer X or Y" questions)
+  skills: ["Python", "React", "Node.js"], // every tool/library you have HANDS-ON evidence for — SDK answers from this
+  highlights: [
+    "One line per proof: what you built with which tech, deployed where",
+  ],
   // Pre-approved screening answers. ONLY add answers that are true for you —
   // the bot fills these deterministically; anything else escalates to AI/human.
   screening: {
